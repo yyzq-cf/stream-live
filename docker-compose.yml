@@ -1,0 +1,21 @@
+services:
+  streamlive:
+    image: ywsj/stream-live:latest
+    container_name: streamlive
+    restart: always
+    ports:
+      - "5201:5200"       # Web 界面
+      - "1935:1935"       # RTMP 推流
+    volumes:
+      - ./data:/app/data
+    environment:
+      - ADMIN_USER=admin
+      - ADMIN_PASS=admin123
+      - SECRET_KEY=change...ring
+      - TZ=Asia/Shanghai
+      - SERVER_HOST=       # 可选：外部访问域名或IP（展示推流地址用）
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5200/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

@@ -1,0 +1,12 @@
+{
+  "id": "20260913-124318-create",
+  "channel_id": "370d60471262",
+  "action": "create",
+  "timestamp": "2026-09-13 12:43:18",
+  "data": {
+    "name": "版本测试频道",
+    "description": "测试版本控制",
+    "source_url": "",
+    "cover_url": ""
+  }
+}

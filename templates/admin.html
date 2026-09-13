@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block title %}管理{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-cog"></i> 频道管理</h1>
+    <div class="admin-header-right">
+        <button class="btn-secondary" onclick="showSnapshots()">
+            <i class="fas fa-history"></i> 版本历史
+        </button>
+        <button class="btn-primary" onclick="showCreateModal()">
+            <i class="fas fa-plus"></i> 创建频道
+        </button>
+    </div>
+</div>
+
+<!-- 推流说明 -->
+<div class="push-info-banner">
+    <div class="banner-item">
+        <span class="banner-label"><i class="fas fa-server"></i> RTMP 推流地址</span>
+        <code id="rtmpServer">rtmp://{{ request.host.split(':')[0] }}:1935/live</code>
+        <button class="btn-copy-sm" onclick="copyText('rtmp://{{ request.host.split(':')[0] }}:1935/live')"><i class="fas fa-copy"></i></button>
+    </div>
+</div>
+
+<!-- 频道列表 -->
+<div class="admin-table-wrap">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>频道名称</th>
+                <th>介绍</th>
+                <th>推流密钥</th>
+                <th>源URL</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="channelTableBody">
+            {% for ch in channels %}
+            <tr data-id="{{ ch.id }}">
+                <td class="col-name">{{ ch.name }}</td>
+                <td class="col-desc">{{ ch.description or '—' }}</td>
+                <td class="col-key">
+                    <code>{{ ch.stream_key }}</code>
+                    <button class="btn-copy-sm" onclick="copyText('{{ ch.stream_key }}')"><i class="fas fa-copy"></i></button>
+                </td>
+                <td class="col-url">{{ ch.source_url or '—' }}</td>
+                <td>
+                    <span class="status-badge {% if ch.status == 'live' %}status-live{% else %}status-offline{% endif %}">
+                        {% if ch.status == 'live' %}<span class="live-dot"></span> LIVE{% else %}离线{% endif %}
+                    </span>
+                </td>
+                <td class="col-actions">
+                    {% if ch.source_url %}
+                    {% if ch.status == 'live' %}
+                    <button class="btn-sm btn-stop" onclick="stopStream('{{ ch.id }}')">
+                        <i class="fas fa-stop"></i> 停止
+                    </button>
+                    {% else %}
+                    <button class="btn-sm btn-start" onclick="startStream('{{ ch.id }}')">
+                        <i class="fas fa-play"></i> 拉流
+                    </button>
+                    {% endif %}
+                    {% endif %}
+                    <button class="btn-sm btn-edit" onclick="editChannel('{{ ch.id }}', '{{ ch.name|e }}', '{{ ch.description|e }}', '{{ ch.source_url|e }}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-sm btn-delete" onclick="deleteChannel('{{ ch.id }}', '{{ ch.name|e }}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if not channels %}
+    <div class="empty-state">
+        <i class="fas fa-tv"></i>
+        <h2>暂无频道</h2>
+        <p>点击右上角"创建频道"开始</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 使用说明 -->
+<div class="usage-guide">
+    <h3><i class="fas fa-info-circle"></i> 推流方法</h3>
+    <div class="guide-section">
+        <h4>方式一：OBS 推流（推荐）</h4>
+        <ol>
+            <li>打开 OBS → 设置 → 推流</li>
+            <li>服务器填入：<code>rtmp://{{ request.host.split(':')[0] }}:1935/live</code></li>
+            <li>推流密钥填入上方表格中对应频道的密钥</li>
+            <li>点击"开始推流"</li>
+        </ol>
+    </div>
+    <div class="guide-section">
+        <h4>方式二：FFmpeg 命令行推流</h4>
+        <pre>ffmpeg -re -i video.mp4 -c copy -f flv rtmp://{{ request.host.split(':')[0] }}:1935/live/&lt;推流密钥&gt;</pre>
+    </div>
+    <div class="guide-section">
+        <h4>方式三：服务端拉流</h4>
+        <p>在频道设置中填写源 URL（支持 RTMP/RTSP/HLS/SRT），然后点击"拉流"按钮。</p>
+    </div>
+</div>
+
+<!-- 版本历史弹窗 -->
+<div class="modal-overlay" id="snapshotModal" style="display:none;">
+    <div class="modal" style="max-width:700px;">
+        <div class="modal-header">
+            <h2><i class="fas fa-history"></i> 版本历史</h2>
+            <button class="modal-close" onclick="closeSnapshotModal()">&times;</button>
+        </div>
+        <div style="padding:24px;max-height:500px;overflow-y:auto;" id="snapshotList">
+            <p style="color:var(--text-dim);text-align:center;padding:20px;">加载中...</p>
+        </div>
+    </div>
+</div>
+
+<!-- 创建/编辑频道弹窗 -->
+<div class="modal-overlay" id="channelModal" style="display:none;">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 id="modalTitle">创建频道</h2>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="channelForm" onsubmit="submitChannel(event)">
+            <input type="hidden" id="editId" value="">
+            <div class="form-group">
+                <label><i class="fas fa-tag"></i> 频道名称</label>
+                <input type="text" id="chName" required placeholder="例如：测试频道1">
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-align-left"></i> 频道介绍</label>
+                <textarea id="chDesc" rows="2" placeholder="可选描述"></textarea>
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-link"></i> 源 URL（可选，用于拉流模式）</label>
+                <input type="text" id="chUrl" placeholder="留空则使用 RTMP 推流模式">
+                <small class="form-hint">填写后可点击"拉流"按钮自动拉取。留空则等待推流。</small>
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-image"></i> 封面图片</label>
+                <input type="file" id="chCover" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none;"
+                       onchange="previewCover(this)">
+                <div class="cover-preview" id="coverPreview" onclick="document.getElementById('chCover').click()">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>点击上传封面</span>
+                </div>
+                <input type="hidden" id="coverChanged" value="0">
+                <small class="form-hint">支持 JPG/PNG/WebP/GIF，建议 16:9 比例</small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeModal()">取消</button>
+                <button type="submit" class="btn-primary"><i class="fas fa-check"></i> 保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function showCreateModal() {
+    document.getElementById('modalTitle').textContent = '创建频道';
+    document.getElementById('editId').value = '';
+    document.getElementById('chName').value = '';
+    document.getElementById('chDesc').value = '';
+    document.getElementById('chUrl').value = '';
+    document.getElementById('coverChanged').value = '0';
+    document.getElementById('chCover').value = '';
+    const preview = document.getElementById('coverPreview');
+    preview.style.backgroundImage = '';
+    preview.innerHTML = '<i class="fas fa-cloud-upload-alt"></i><span>点击上传封面</span>';
+    document.getElementById('channelModal').style.display = 'flex';
+}
+
+function editChannel(id, name, desc, url) {
+    document.getElementById('modalTitle').textContent = '编辑频道';
+    document.getElementById('editId').value = id;
+    document.getElementById('chName').value = name;
+    document.getElementById('chDesc').value = desc;
+    document.getElementById('chUrl').value = url;
+    document.getElementById('coverChanged').value = '0';
+    // 重置封面预览
+    const preview = document.getElementById('coverPreview');
+    preview.innerHTML = '<i class="fas fa-cloud-upload-alt"></i><span>点击上传封面</span>';
+    preview.style.backgroundImage = '';
+
+    // 加载当前频道列表获取封面
+    fetch('/api/channels')
+        .then(r => r.json())
+        .then(channels => {
+            const ch = channels.find(c => c.id === id);
+            if (ch && ch.cover_url) {
+                preview.style.backgroundImage = 'url(' + ch.cover_url + ')';
+                preview.innerHTML = '<span class="cover-change-hint">点击更换封面</span>';
+            }
+        })
+        .catch(() => {});
+
+    document.getElementById('channelModal').style.display = 'flex';
+}
+
+function previewCover(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const preview = document.getElementById('coverPreview');
+        preview.style.backgroundImage = 'url(' + e.target.result + ')';
+        preview.innerHTML = '<span class="cover-change-hint">点击更换封面</span>';
+        document.getElementById('coverChanged').value = '1';
+    };
+    reader.readAsDataURL(file);
+}
+
+function closeModal() {
+    document.getElementById('channelModal').style.display = 'none';
+}
+
+async function submitChannel(e) {
+    e.preventDefault();
+    const id = document.getElementById('editId').value;
+    const data = {
+        name: document.getElementById('chName').value,
+        description: document.getElementById('chDesc').value,
+        source_url: document.getElementById('chUrl').value,
+    };
+
+    try {
+        let resp;
+        if (id) {
+            resp = await fetch(`/api/channels/${id}`, {
+                method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+            });
+        } else {
+            resp = await fetch('/api/channels', {
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+            });
+        }
+        const result = await resp.json();
+        if (resp.ok) {
+            // 如果有封面要上传
+            const coverFile = document.getElementById('chCover').files[0];
+            // 编辑时用 editId，创建时用 result.id
+            const channelId = id || result.id;
+            if (coverFile && channelId) {
+                const formData = new FormData();
+                formData.append('cover', coverFile);
+                await fetch(`/api/channels/${channelId}/cover`, {
+                    method: 'POST',
+                    body: formData
+                });
+            }
+            location.reload();
+        } else {
+            alert(result.error || '操作失败');
+        }
+    } catch (err) { alert('请求失败: ' + err.message); }
+}
+
+async function startStream(id) {
+    try {
+        const resp = await fetch(`/api/channels/${id}/start`, {method: 'POST'});
+        const result = await resp.json();
+        if (resp.ok) location.reload(); else alert(result.error || '开播失败');
+    } catch (err) { alert('请求失败: ' + err.message); }
+}
+
+async function stopStream(id) {
+    if (!confirm('确定停止此频道的拉流？')) return;
+    try {
+        const resp = await fetch(`/api/channels/${id}/stop`, {method: 'POST'});
+        if (resp.ok) location.reload();
+    } catch (err) { alert('请求失败: ' + err.message); }
+}
+
+async function deleteChannel(id, name) {
+    if (!confirm(`确定删除频道"${name}"？\n此操作不可恢复！`)) return;
+    try {
+        const resp = await fetch(`/api/channels/${id}`, {method: 'DELETE'});
+        if (resp.ok) location.reload();
+    } catch (err) { alert('请求失败: ' + err.message); }
+}
+
+function copyText(text) {
+    // 创建临时 textarea 兼容 HTTP 环境
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try {
+        ok = document.execCommand('copy');
+    } catch (e) {
+        // 降级：用 clipboard API
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text);
+            ok = true;
+        }
+    }
+    document.body.removeChild(ta);
+
+    // 视觉反馈
+    const btn = event.target.closest('.btn-copy-sm');
+    if (btn) {
+        const original = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i>';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.innerHTML = original; btn.classList.remove('copied'); }, 1500);
+    }
+}
+
+document.getElementById('channelModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+
+// ===== 版本历史 =====
+async function showSnapshots() {
+    document.getElementById('snapshotModal').style.display = 'flex';
+    document.getElementById('snapshotList').innerHTML = '<p style="color:var(--text-dim);text-align:center;padding:20px;">加载中...</p>';
+    try {
+        const resp = await fetch('/api/snapshots');
+        const snaps = await resp.json();
+        if (snaps.length === 0) {
+            document.getElementById('snapshotList').innerHTML = '<div class="empty-state" style="padding:30px;"><i class="fas fa-inbox"></i><h2>暂无版本记录</h2><p>频道变更时会自动创建快照</p></div>';
+            return;
+        }
+
+        const actionLabels = {
+            'create': '<i class="fas fa-plus-circle" style="color:var(--success)"></i> 创建',
+            'update': '<i class="fas fa-edit" style="color:var(--primary)"></i> 编辑',
+            'cover': '<i class="fas fa-image" style="color:var(--accent)"></i> 封面',
+            'delete': '<i class="fas fa-trash" style="color:var(--danger)"></i> 删除',
+            'start': '<i class="fas fa-play" style="color:var(--success)"></i> 开播',
+            'stop': '<i class="fas fa-stop" style="color:var(--danger)"></i> 停止'
+        };
+
+        let html = '<table class="admin-table"><thead><tr><th>时间</th><th>频道</th><th>操作</th><th>快照数据</th><th>操作</th></tr></thead><tbody>';
+        snaps.forEach(s => {
+            const data = s.data || {};
+            const dataStr = Object.entries(data).filter(([k,v]) => v && k !== 'description').map(([k,v]) => `${k}=${v.length>20?v.substring(0,20)+'...':v}`).join(', ');
+            html += `<tr>
+                <td style="white-space:nowrap;font-size:0.8rem;">${s.timestamp}</td>
+                <td style="font-size:0.85rem;">${data.name || s.channel_id}</td>
+                <td>${actionLabels[s.action] || s.action}</td>
+                <td style="font-size:0.78rem;color:var(--text-dim);max-width:200px;overflow:hidden;text-overflow:ellipsis;">${dataStr || '—'}</td>
+                <td>${s.action !== 'create' && s.action !== 'delete' ? '<button class="btn-sm btn-edit" onclick="restoreSnapshot(\''+s.channel_id+'\', \''+s.id+'\')"><i class="fas fa-undo"></i> 恢复</button>' : '—'}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('snapshotList').innerHTML = html;
+    } catch (err) {
+        document.getElementById('snapshotList').innerHTML = '<p style="color:var(--danger);">加载失败: ' + err.message + '</p>';
+    }
+}
+
+function closeSnapshotModal() {
+    document.getElementById('snapshotModal').style.display = 'none';
+}
+
+async function restoreSnapshot(channelId, snapId) {
+    if (!confirm('确定恢复到此版本？当前频道配置将被覆盖。')) return;
+    try {
+        const resp = await fetch(`/api/snapshots/${channelId}/${snapId}/restore`, {method: 'POST'});
+        const result = await resp.json();
+        if (resp.ok) {
+            alert('已恢复到指定版本');
+            location.reload();
+        } else {
+            alert(result.error || '恢复失败');
+        }
+    } catch (err) {
+        alert('请求失败: ' + err.message);
+    }
+}
+
+document.getElementById('snapshotModal').addEventListener('click', function(e) {
+    if (e.target === this) closeSnapshotModal();
+});
+</script>
+{% endblock %}

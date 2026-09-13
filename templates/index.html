@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}首页{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-broadcast-tower"></i> 直播频道</h1>
+    <p class="subtitle">接收流并实时直播</p>
+    <div class="live-counters" id="liveCounters"></div>
+</div>
+
+<div class="channel-grid" id="channelGrid">
+    {% if channels %}
+        {% for ch in channels %}
+        <div class="channel-card" data-id="{{ ch.id }}">
+            <div class="card-thumb">
+                {% if ch.cover_url %}
+                <img src="{{ ch.cover_url }}" class="thumb-cover" alt="{{ ch.name }}"
+                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                <div class="thumb-placeholder" style="display:none;">
+                    <i class="fas fa-video"></i>
+                </div>
+                {% else %}
+                <div class="thumb-placeholder">
+                    <i class="fas fa-video"></i>
+                </div>
+                {% endif %}
+                <span class="status-badge {% if ch.status == 'live' %}status-live{% else %}status-offline{% endif %}">
+                    {% if ch.status == 'live' %}
+                    <span class="live-dot"></span> LIVE
+                    {% else %}
+                    <i class="fas fa-clock"></i> 离线
+                    {% endif %}
+                </span>
+            </div>
+            <div class="card-body">
+                <h3>{{ ch.name }}</h3>
+                <p class="card-desc">{{ ch.description or '暂无介绍' }}</p>
+                <div class="card-meta">
+                    <span><i class="fas fa-eye"></i> {{ ch.viewers or 0 }}</span>
+                    <span><i class="fas fa-calendar"></i> {{ ch.created_at[:10] if ch.created_at else '' }}</span>
+                </div>
+                <a href="/watch/{{ ch.id }}" class="btn-watch {% if ch.status != 'live' %}btn-disabled{% endif %}">
+                    <i class="fas fa-play"></i>
+                    {% if ch.status == 'live' %}观看直播{% else %}未开播{% endif %}
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <i class="fas fa-tv"></i>
+            <h2>暂无频道</h2>
+            <p>管理员可以登录后创建频道并开始直播</p>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+// 自动刷新频道状态
+async function refreshStatus() {
+    try {
+        const resp = await fetch('/api/channels');
+        const channels = await resp.json();
+        const liveCount = channels.filter(c => c.status === 'live').length;
+
+        const counter = document.getElementById('liveCounters');
+        if (counter) {
+            counter.innerHTML = `
+                <span class="counter-live"><span class="live-dot"></span> ${liveCount} 个直播中</span>
+                <span class="counter-total">共 ${channels.length} 个频道</span>
+            `;
+        }
+
+        channels.forEach(ch => {
+            const card = document.querySelector(`.channel-card[data-id="${ch.id}"]`);
+            if (!card) return;
+
+            const badge = card.querySelector('.status-badge');
+            const btn = card.querySelector('.btn-watch');
+
+            if (ch.status === 'live') {
+                badge.className = 'status-badge status-live';
+                badge.innerHTML = '<span class="live-dot"></span> LIVE';
+                btn.className = 'btn-watch';
+                btn.innerHTML = '<i class="fas fa-play"></i> 观看直播';
+                btn.href = `/watch/${ch.id}`;
+            } else {
+                badge.className = 'status-badge status-offline';
+                badge.innerHTML = '<i class="fas fa-clock"></i> 离线';
+                btn.className = 'btn-watch btn-disabled';
+                btn.innerHTML = '<i class="fas fa-play"></i> 未开播';
+            }
+        });
+    } catch (e) {
+        console.error('刷新状态失败:', e);
+    }
+}
+
+refreshStatus();
+setInterval(refreshStatus, 15000);
+</script>
+{% endblock %}

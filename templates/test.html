@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>播放测试</title></head>
+<body style="margin:0;background:#000;">
+<video id="v" controls autoplay muted style="width:100vw;height:100vh;"></video>
+<script src="/static/js/hls.min.js"></script>
+<script>
+var video = document.getElementById('v');
+var url = '/live/f14a355f051510b1/index.m3u8';
+document.title = 'loading...';
+if (Hls.isSupported()) {
+    var hls = new Hls();
+    hls.loadSource(url);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+        video.play();
+        document.title = 'playing';
+    });
+    hls.on(Hls.Events.ERROR, function(e, d) {
+        document.title = 'error: ' + d.details;
+    });
+} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = url;
+    video.play();
+}
+</script>
+</body>
+</html>
