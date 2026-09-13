@@ -92,6 +92,10 @@ stream-live/
 - HLS.js 1.5（浏览器播放）
 - Docker + supervisord
 
+## 🔗 GitHub
+
+https://github.com/yyzq-cf/stream-live
+
 ## 📝 致谢
 
 - [Flask](https://flask.palletsprojects.com/) — Web 框架

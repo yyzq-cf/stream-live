@@ -775,3 +775,18 @@ a { color: inherit; text-decoration: none; }
     border-color: var(--primary);
     color: var(--primary);
 }
+
+/* ===== GitHub 图标 ===== */
+.nav-github {
+    display: flex;
+    align-items: center;
+    color: var(--text-dim);
+    transition: color 0.2s;
+}
+.nav-github:hover {
+    color: var(--text);
+}
+.nav-github svg {
+    width: 20px;
+    height: 20px;
+}
