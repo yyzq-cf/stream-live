@@ -14,6 +14,7 @@ services:
       - SECRET_KEY=change...ring
       - TZ=Asia/Shanghai
       - SERVER_HOST=       # 可选：外部访问域名或IP（展示推流地址用）
+      - APP_VERSION=dev     # 版本号（CI 自动注入，本地 dev）
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5200/health"]
       interval: 30s

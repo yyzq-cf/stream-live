@@ -49,6 +49,9 @@ ADMIN_PASS = os.environ.get("ADMIN_PASS", "admin123")
 # 获取外部访问地址（用于展示推流 URL）
 SERVER_HOST = os.environ.get("SERVER_HOST", "")
 
+# 版本号（CI 构建时通过 build-arg 注入，本地开发为 dev）
+APP_VERSION = os.environ.get("APP_VERSION", "dev")
+
 # 确保证书持久化
 if not SECRET_KEY:
     SECRET_FILE = DATA_DIR / "secret_key.txt"
@@ -642,7 +645,13 @@ def api_channels():
     channels = db.execute(
         "SELECT id, name, description, status, viewers, created_at, cover_url FROM channels ORDER BY created_at DESC"
     ).fetchall()
-    return jsonify([dict(c) for c in channels])
+    result = []
+    for c in channels:
+        d = dict(c)
+        # 用内存中的实时观众数覆盖数据库的旧值
+        d["viewers"] = viewer_tracker.count(d["id"])
+        result.append(d)
+    return jsonify(result)
 
 
 @app.route("/api/channels", methods=["POST"])
@@ -924,6 +933,12 @@ def graceful_shutdown(signum, frame):
 
 signal.signal(signal.SIGTERM, graceful_shutdown)
 signal.signal(signal.SIGINT, graceful_shutdown)
+
+
+# ─── 模板上下文注入 ─────────────────────────────────
+@app.context_processor
+def inject_version():
+    return {"APP_VERSION": APP_VERSION}
 
 
 # ─── 启动 ─────────────────────────────────────────

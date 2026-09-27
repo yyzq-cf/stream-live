@@ -38,6 +38,8 @@ jobs:
           tags: |
             ywsj/stream-live:latest
             ywsj/stream-live:${{ steps.version.outputs.VERSION }}
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

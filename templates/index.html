@@ -78,6 +78,8 @@ async function refreshStatus() {
 
             const badge = card.querySelector('.status-badge');
             const btn = card.querySelector('.btn-watch');
+            const eyeEl = card.querySelector('.card-meta .fa-eye');
+            if (eyeEl) eyeEl.parentElement.innerHTML = '<i class="fas fa-eye"></i> ' + (ch.viewers || 0);
 
             if (ch.status === 'live') {
                 badge.className = 'status-badge status-live';

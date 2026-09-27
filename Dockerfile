@@ -33,4 +33,7 @@ ENV PYTHONUNBUFFERED=1
 ENV DATA_DIR=/app/data
 ENV TZ=Asia/Shanghai
 
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
+
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

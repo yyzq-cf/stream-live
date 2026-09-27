@@ -126,7 +126,52 @@
 
     init();
 
-    // 状态检查
+    // ─── 观众计数上报 ──────────────────────────────
+    var viewerId = localStorage.getItem('sl_vid') || '';
+    if (!viewerId) {
+        viewerId = 'v' + Date.now() + Math.random().toString(36).slice(2, 8);
+        localStorage.setItem('sl_vid', viewerId);
+    }
+
+    function joinChannel() {
+        fetch('/api/channels/' + channelId + '/join', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({viewer_id: viewerId})
+        }).catch(function(){});
+    }
+
+    function heartbeat() {
+        fetch('/api/channels/' + channelId + '/heartbeat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({viewer_id: viewerId})
+        }).then(function(r){return r.json();}).then(function(data){
+            var el = document.getElementById('viewerCount');
+            if (el) el.textContent = data.viewers || 0;
+        }).catch(function(){});
+    }
+
+    function leaveChannel() {
+        navigator.sendBeacon(
+            '/api/channels/' + channelId + '/leave',
+            JSON.stringify({viewer_id: viewerId})
+        );
+    }
+
+    joinChannel();
+
+    // 心跳：每15秒上报一次
+    setInterval(heartbeat, 15000);
+
+    // 离开页面时注销
+    window.addEventListener('beforeunload', leaveChannel);
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'hidden') leaveChannel();
+        if (document.visibilityState === 'visible') joinChannel();
+    });
+
+    // ─── 状态检查 ──────────────────────────────────
     setInterval(function() {
         fetch('/api/channels/' + channelId + '/status')
             .then(function(r) { return r.json(); })
