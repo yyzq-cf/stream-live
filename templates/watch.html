@@ -220,7 +220,6 @@
         }).catch(function() {
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-arrow-right"></i>';
-            errEl.querySelector('span, ::after');
             errEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> 网络错误，请重试';
             errEl.classList.add('show');
         });
