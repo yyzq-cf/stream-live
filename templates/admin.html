@@ -142,6 +142,11 @@
                 <small class="form-hint">填写后可点击"拉流"按钮自动拉取。留空则等待推流。</small>
             </div>
             <div class="form-group">
+                <label><i class="fas fa-lock"></i> 观看密码（可选）</label>
+                <input type="text" id="chPassword" placeholder="留空则无需密码">
+                <small class="form-hint">设置后观众需要输入密码才能观看直播</small>
+            </div>
+            <div class="form-group">
                 <label><i class="fas fa-image"></i> 封面图片</label>
                 <input type="file" id="chCover" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none;"
                        onchange="previewCover(this)">
@@ -167,6 +172,7 @@ function showCreateModal() {
     document.getElementById('chName').value = '';
     document.getElementById('chDesc').value = '';
     document.getElementById('chUrl').value = '';
+    document.getElementById('chPassword').value = '';
     document.getElementById('coverChanged').value = '0';
     document.getElementById('chCover').value = '';
     const preview = document.getElementById('coverPreview');
@@ -181,6 +187,7 @@ function editChannel(id, name, desc, url) {
     document.getElementById('chName').value = name;
     document.getElementById('chDesc').value = desc;
     document.getElementById('chUrl').value = url;
+    document.getElementById('chPassword').value = '';
     document.getElementById('coverChanged').value = '0';
     // 重置封面预览
     const preview = document.getElementById('coverPreview');
@@ -226,6 +233,7 @@ async function submitChannel(e) {
         name: document.getElementById('chName').value,
         description: document.getElementById('chDesc').value,
         source_url: document.getElementById('chUrl').value,
+        room_password: document.getElementById('chPassword').value,
     };
 
     try {

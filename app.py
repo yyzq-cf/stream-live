@@ -136,6 +136,10 @@ def init_db():
             conn.execute("ALTER TABLE channels ADD COLUMN total_views INTEGER DEFAULT 0")
             conn.commit()
             log.info("数据库迁移: 已添加 total_views 字段")
+        if "room_password" not in cols:
+            conn.execute("ALTER TABLE channels ADD COLUMN room_password TEXT DEFAULT ''")
+            conn.commit()
+            log.info("数据库迁移: 已添加 room_password 字段")
     except Exception as e:
         log.warning(f"数据库迁移检查失败: {e}")
     conn.close()
@@ -559,7 +563,10 @@ def watch(channel_id):
     ).fetchone()
     if not channel:
         abort(404)
-    return render_template("watch.html", channel=channel)
+    ch = dict(channel)
+    needs_password = bool(ch.get("room_password"))
+    has_access = session.get(f"channel_access_{channel_id}", False)
+    return render_template("watch.html", channel=ch, needs_password=needs_password, has_access=has_access)
 
 
 # ─── HLS 播放路由 ─────────────────────────────────
@@ -649,13 +656,15 @@ def rtmp_done():
 def api_channels():
     db = get_db()
     channels = db.execute(
-        "SELECT id, name, description, status, viewers, total_views, created_at, cover_url FROM channels ORDER BY created_at DESC"
+        "SELECT id, name, description, status, viewers, total_views, created_at, cover_url, room_password FROM channels ORDER BY created_at DESC"
     ).fetchall()
     result = []
     for c in channels:
         d = dict(c)
         d["viewers"] = viewer_tracker.count(d["id"])
         d["total_views"] = d.get("total_views") or 0
+        d["has_password"] = bool(d.get("room_password"))
+        d.pop("room_password", None)
         result.append(d)
     return jsonify(result)
 
@@ -672,8 +681,8 @@ def api_create_channel():
 
     db = get_db()
     db.execute(
-        """INSERT INTO channels (id, name, description, stream_key, source_url, source_type)
-           VALUES (?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO channels (id, name, description, stream_key, source_url, source_type, room_password)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
         (
             channel_id,
             data["name"],
@@ -681,6 +690,7 @@ def api_create_channel():
             stream_key,
             data.get("source_url", ""),
             data.get("source_type", "push"),
+            data.get("room_password", ""),
         )
     )
     db.commit()
@@ -761,9 +771,10 @@ def api_update_channel(channel_id):
     description = data.get("description", channel["description"])
     source_url = data.get("source_url", channel["source_url"])
 
+    room_password = data.get("room_password", channel["room_password"] if "room_password" in channel.keys() else "")
     db.execute(
-        "UPDATE channels SET name=?, description=?, source_url=?, updated_at=datetime('now', '+8 hours') WHERE id=?",
-        (name, description, source_url, channel_id)
+        "UPDATE channels SET name=?, description=?, source_url=?, room_password=?, updated_at=datetime('now', '+8 hours') WHERE id=?",
+        (name, description, source_url, room_password, channel_id)
     )
 
     # 处理封面删除
@@ -839,6 +850,23 @@ def api_channel_status(channel_id):
         "viewers": viewer_tracker.count(channel_id),
         "total_views": total
     })
+
+
+@app.route("/api/channels/<channel_id>/verify", methods=["POST"])
+def api_verify_channel(channel_id):
+    """验证频道密码"""
+    db = get_db()
+    channel = db.execute("SELECT room_password FROM channels WHERE id=?", (channel_id,)).fetchone()
+    if not channel:
+        return jsonify({"error": "频道不存在"}), 404
+    room_password = channel["room_password"] if "room_password" in channel.keys() else ""
+    if not room_password:
+        return jsonify({"ok": True, "access": True})
+    data = request.get_json() or {}
+    if data.get("password", "") == room_password:
+        session[f"channel_access_{channel_id}"] = True
+        return jsonify({"ok": True, "access": True})
+    return jsonify({"ok": False, "access": False, "error": "密码错误"}), 403
 
 
 @app.route("/api/channels/<channel_id>/join", methods=["POST"])
