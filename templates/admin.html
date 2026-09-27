@@ -199,9 +199,14 @@ function editChannel(id, name, desc, url) {
         .then(r => r.json())
         .then(channels => {
             const ch = channels.find(c => c.id === id);
-            if (ch && ch.cover_url) {
-                preview.style.backgroundImage = 'url(' + ch.cover_url + ')';
-                preview.innerHTML = '<span class="cover-change-hint">点击更换封面</span>';
+            if (ch) {
+                if (ch.cover_url) {
+                    preview.style.backgroundImage = 'url(' + ch.cover_url + ')';
+                    preview.innerHTML = '<span class="cover-change-hint">点击更换封面</span>';
+                }
+                if (ch.room_password) {
+                    document.getElementById('chPassword').value = ch.room_password;
+                }
             }
         })
         .catch(() => {});

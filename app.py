@@ -659,12 +659,14 @@ def api_channels():
         "SELECT id, name, description, status, viewers, total_views, created_at, cover_url, room_password FROM channels ORDER BY created_at DESC"
     ).fetchall()
     result = []
+    is_admin = session.get("logged_in", False)
     for c in channels:
         d = dict(c)
         d["viewers"] = viewer_tracker.count(d["id"])
         d["total_views"] = d.get("total_views") or 0
         d["has_password"] = bool(d.get("room_password"))
-        d.pop("room_password", None)
+        if not is_admin:
+            d.pop("room_password", None)
         result.append(d)
     return jsonify(result)
 
