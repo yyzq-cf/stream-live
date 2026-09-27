@@ -20,13 +20,17 @@
     <!-- 密码验证 -->
     <div class="password-gate">
         <div class="password-box">
-            <i class="fas fa-lock"></i>
-            <h2>此直播需要密码</h2>
-            <p>请输入密码以观看直播</p>
-            <input type="password" id="roomPasswordInput" placeholder="输入密码" autofocus
-                   onkeyup="if(event.key==='Enter') verifyPassword()">
-            <button onclick="verifyPassword()" class="btn-primary"><i class="fas fa-check"></i> 确认</button>
-            <p id="passwordError" style="color:#e74c3c;display:none;margin-top:8px;">密码错误，请重试</p>
+            <div class="password-icon"><i class="fas fa-lock"></i></div>
+            <h2>{{ channel.name }}</h2>
+            <p class="password-subtitle">此直播已加密，请输入密码观看</p>
+            <div class="password-input-wrap">
+                <input type="password" id="roomPasswordInput" placeholder="请输入密码" autofocus
+                       onkeyup="if(event.key==='Enter') verifyPassword()">
+                <button onclick="verifyPassword()" class="pwd-btn" id="pwdBtn">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+            <p id="passwordError" class="password-error"><i class="fas fa-exclamation-circle"></i> 密码错误，请重试</p>
         </div>
     </div>
     {% else %}
@@ -69,13 +73,20 @@
 {% endblock %}
 
 <style>
-.password-gate{display:flex;align-items:center;justify-content:center;min-height:400px;background:var(--surface, #1a1a2e);border-radius:12px;}
-.password-box{text-align:center;padding:40px;max-width:380px;}
-.password-box i{font-size:48px;color:var(--text-dim, #888);margin-bottom:16px;}
-.password-box h2{margin-bottom:8px;}
-.password-box p{color:var(--text-dim, #888);margin-bottom:20px;}
-.password-box input{width:100%;padding:12px;border-radius:8px;border:1px solid var(--surface-border, #333);background:var(--surface, #1a1a2e);color:var(--text, #eee);margin-bottom:12px;box-sizing:border-box;font-size:16px;}
-.password-box button{width:100%;}
+.password-gate{display:flex;align-items:center;justify-content:center;min-height:450px;background:linear-gradient(135deg,var(--surface,#1a1a2e),var(--bg,#0f0f1e));border-radius:12px;}
+.password-box{text-align:center;padding:48px 40px;max-width:400px;width:100%;}
+.password-icon{width:72px;height:72px;margin:0 auto 24px;border-radius:50%;background:var(--primary,#6c5ce7);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(108,92,231,0.3);}
+.password-icon i{font-size:28px;color:#fff;}
+.password-box h2{font-size:1.4rem;margin-bottom:8px;}
+.password-subtitle{color:var(--text-dim,#888);font-size:0.9rem;margin-bottom:28px;}
+.password-input-wrap{display:flex;gap:8px;margin-bottom:4px;}
+.password-input-wrap input{flex:1;padding:14px 16px;border-radius:10px;border:2px solid var(--surface-border,#333);background:var(--surface-hover,#252540);color:var(--text,#eee);font-size:15px;box-sizing:border-box;transition:border-color 0.2s;}
+.password-input-wrap input:focus{outline:none;border-color:var(--primary,#6c5ce7);}
+.pwd-btn{width:48px;height:48px;border:none;border-radius:10px;background:var(--primary,#6c5ce7);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;transition:background 0.2s;flex-shrink:0;}
+.pwd-btn:hover{background:var(--primary-dark,#5a4bd0);}
+.password-error{color:#e74c3c;font-size:0.85rem;margin-top:12px;display:none;align-items:center;gap:6px;}
+.password-error.show{display:flex;animation:shake 0.4s;}
+@keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-8px);}75%{transform:translateX(8px);}}
 </style>
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/hls.min.js') }}"></script>
@@ -155,17 +166,41 @@
     {% if needs_password and not has_access %}
     function verifyPassword() {
         var pwd = document.getElementById('roomPasswordInput').value;
+        var btn = document.getElementById('pwdBtn');
+        var errEl = document.getElementById('passwordError');
+        var input = document.getElementById('roomPasswordInput');
+
+        if (!pwd) { input.focus(); return; }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        errEl.classList.remove('show');
+
         fetch('/api/channels/' + channelId + '/verify', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({password: pwd})
-        }).then(function(r){return r.json();}).then(function(data){
-            if (data.access) {
+        }).then(function(r) {
+            return r.json().then(function(data) {
+                return {ok: r.ok, data: data};
+            });
+        }).then(function(res) {
+            if (res.data.access) {
                 location.reload();
             } else {
-                document.getElementById('passwordError').style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-arrow-right"></i>';
+                errEl.classList.add('show');
+                input.value = '';
+                input.focus();
             }
-        }).catch(function(){});
+        }).catch(function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-arrow-right"></i>';
+            errEl.querySelector('span, ::after');
+            errEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> 网络错误，请重试';
+            errEl.classList.add('show');
+        });
     }
     {% else %}
     init();
