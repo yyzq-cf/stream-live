@@ -179,17 +179,20 @@
         fetch('/api/channels/' + channelId + '/verify', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({password: pwd})
+            body: JSON.stringify({password: pwd}),
+            credentials: 'same-origin'
         }).then(function(r) {
             return r.json().then(function(data) {
                 return {ok: r.ok, data: data};
             });
         }).then(function(res) {
             if (res.data.access) {
-                location.reload();
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(function() { location.reload(); }, 300);
             } else {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-arrow-right"></i>';
+                errEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + (res.data.error || '密码错误');
                 errEl.classList.add('show');
                 input.value = '';
                 input.focus();

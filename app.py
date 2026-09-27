@@ -571,8 +571,22 @@ def watch(channel_id):
 
 # ─── HLS 播放路由 ─────────────────────────────────
 # nginx-rtmp hls_nested 模式: /app/data/hls/<stream_key>/index.m3u8
+def _check_hls_access(stream_key):
+    """检查 HLS 访问权限：有密码的频道需要 session 授权"""
+    db = get_db()
+    ch = db.execute("SELECT id, room_password FROM channels WHERE stream_key=?", (stream_key,)).fetchone()
+    if not ch:
+        abort(404)
+    room_password = ch["room_password"] if "room_password" in ch.keys() else ""
+    if room_password:
+        if not session.get(f"channel_access_{ch['id']}", False):
+            abort(403)
+    return ch["id"]
+
+
 @app.route("/live/<stream_key>/index.m3u8")
 def hls_playlist(stream_key):
+    _check_hls_access(stream_key)
     m3u8 = HLS_DIR / stream_key / "index.m3u8"
     if not m3u8.exists():
         abort(404)
@@ -584,7 +598,7 @@ def hls_playlist(stream_key):
 
 @app.route("/live/<stream_key>/<path:filename>.ts")
 def hls_segment(stream_key, filename):
-    # 匹配 nginx-rtmp hls_nested 模式生成的 TS 文件（数字序列如 0.ts, 1.ts）
+    _check_hls_access(stream_key)
     ts_file = HLS_DIR / stream_key / f"{filename}.ts"
     if not ts_file.exists():
         abort(404)
@@ -867,6 +881,7 @@ def api_verify_channel(channel_id):
     data = request.get_json() or {}
     if data.get("password", "") == room_password:
         session[f"channel_access_{channel_id}"] = True
+        session.permanent = True
         return jsonify({"ok": True, "access": True})
     return jsonify({"ok": False, "access": False, "error": "密码错误"}), 403
 
