@@ -132,6 +132,10 @@ def init_db():
             conn.execute("ALTER TABLE channels ADD COLUMN cover_url TEXT DEFAULT ''")
             conn.commit()
             log.info("数据库迁移: 已添加 cover_url 字段")
+        if "total_views" not in cols:
+            conn.execute("ALTER TABLE channels ADD COLUMN total_views INTEGER DEFAULT 0")
+            conn.commit()
+            log.info("数据库迁移: 已添加 total_views 字段")
     except Exception as e:
         log.warning(f"数据库迁移检查失败: {e}")
     conn.close()
@@ -298,7 +302,9 @@ class ViewerTracker:
         with self._lock:
             if channel_id not in self.viewers:
                 self.viewers[channel_id] = {}
+            is_new = viewer_id not in self.viewers[channel_id]
             self.viewers[channel_id][viewer_id] = time.time()
+            return is_new
 
     def heartbeat(self, channel_id, viewer_id):
         with self._lock:
@@ -643,13 +649,13 @@ def rtmp_done():
 def api_channels():
     db = get_db()
     channels = db.execute(
-        "SELECT id, name, description, status, viewers, created_at, cover_url FROM channels ORDER BY created_at DESC"
+        "SELECT id, name, description, status, viewers, total_views, created_at, cover_url FROM channels ORDER BY created_at DESC"
     ).fetchall()
     result = []
     for c in channels:
         d = dict(c)
-        # 用内存中的实时观众数覆盖数据库的旧值
         d["viewers"] = viewer_tracker.count(d["id"])
+        d["total_views"] = d.get("total_views") or 0
         result.append(d)
     return jsonify(result)
 
@@ -823,12 +829,15 @@ def api_channel_status(channel_id):
             if m3u8.exists():
                 running = True
 
+    row = db.execute("SELECT total_views FROM channels WHERE id=?", (channel_id,)).fetchone()
+    total = row["total_views"] if row else 0
     return jsonify({
         "id": channel["id"],
         "name": channel["name"],
         "status": "live" if running else channel["status"],
         "ffmpeg_running": stream_mgr.is_running(channel_id),
-        "viewers": viewer_tracker.count(channel_id)
+        "viewers": viewer_tracker.count(channel_id),
+        "total_views": total
     })
 
 
@@ -839,8 +848,15 @@ def api_join(channel_id):
     viewer_id = request.json.get("viewer_id") if request.is_json else None
     if not viewer_id:
         viewer_id = _uuid.uuid4().hex[:12]
-    viewer_tracker.join(channel_id, viewer_id)
-    return jsonify({"viewer_id": viewer_id, "viewers": viewer_tracker.count(channel_id)})
+    is_new = viewer_tracker.join(channel_id, viewer_id)
+    if is_new:
+        db = get_db()
+        db.execute("UPDATE channels SET total_views = total_views + 1 WHERE id=?", (channel_id,))
+        db.commit()
+    db = get_db()
+    row = db.execute("SELECT total_views FROM channels WHERE id=?", (channel_id,)).fetchone()
+    total = row["total_views"] if row else 0
+    return jsonify({"viewer_id": viewer_id, "viewers": viewer_tracker.count(channel_id), "total_views": total})
 
 
 @app.route("/api/channels/<channel_id>/heartbeat", methods=["POST"])

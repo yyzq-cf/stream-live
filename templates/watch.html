@@ -39,7 +39,11 @@
         </div>
         <div class="info-item">
             <i class="fas fa-eye"></i>
-            <span>观看人数: <span id="viewerCount">{{ channel.viewers or 0 }}</span></span>
+            <span>正在观看: <span id="viewerCount">{{ channel.viewers or 0 }}</span></span>
+        </div>
+        <div class="info-item">
+            <i class="fas fa-chart-bar"></i>
+            <span>累计观看: <span id="totalViews">{{ channel.total_views or 0 }}</span></span>
         </div>
         <div class="info-item">
             <i class="fas fa-network-wired"></i>
@@ -138,6 +142,9 @@
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({viewer_id: viewerId})
+        }).then(function(r){return r.json();}).then(function(data){
+            var tv = document.getElementById('totalViews');
+            if (tv) tv.textContent = data.total_views || 0;
         }).catch(function(){});
     }
 
@@ -149,6 +156,8 @@
         }).then(function(r){return r.json();}).then(function(data){
             var el = document.getElementById('viewerCount');
             if (el) el.textContent = data.viewers || 0;
+            var tv = document.getElementById('totalViews');
+            if (tv) tv.textContent = data.total_views || 0;
         }).catch(function(){});
     }
 
@@ -179,6 +188,8 @@
                 var badge = document.querySelector('.watch-header .status-badge');
                 var viewerEl = document.getElementById('viewerCount');
                 if (viewerEl) viewerEl.textContent = data.viewers || 0;
+                var tvEl = document.getElementById('totalViews');
+                if (tvEl) tvEl.textContent = data.total_views || 0;
                 if (data.status === 'live') {
                     badge.className = 'status-badge status-live';
                     badge.innerHTML = '<span class="live-dot"></span> 直播中';

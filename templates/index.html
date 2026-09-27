@@ -37,7 +37,8 @@
                 <h3>{{ ch.name }}</h3>
                 <p class="card-desc">{{ ch.description or '暂无介绍' }}</p>
                 <div class="card-meta">
-                    <span><i class="fas fa-eye"></i> {{ ch.viewers or 0 }}</span>
+                    <span><i class="fas fa-eye"></i> 正在观看 {{ ch.viewers or 0 }}</span>
+                    <span><i class="fas fa-chart-bar"></i> 累计 {{ ch.total_views or 0 }}</span>
                     <span><i class="fas fa-calendar"></i> {{ ch.created_at[:10] if ch.created_at else '' }}</span>
                 </div>
                 <a href="/watch/{{ ch.id }}" class="btn-watch {% if ch.status != 'live' %}btn-disabled{% endif %}">
@@ -79,7 +80,9 @@ async function refreshStatus() {
             const badge = card.querySelector('.status-badge');
             const btn = card.querySelector('.btn-watch');
             const eyeEl = card.querySelector('.card-meta .fa-eye');
-            if (eyeEl) eyeEl.parentElement.innerHTML = '<i class="fas fa-eye"></i> ' + (ch.viewers || 0);
+            if (eyeEl) eyeEl.parentElement.innerHTML = '<i class="fas fa-eye"></i> 正在观看 ' + (ch.viewers || 0);
+            const barEl = card.querySelector('.card-meta .fa-chart-bar');
+            if (barEl) barEl.parentElement.innerHTML = '<i class="fas fa-chart-bar"></i> 累计 ' + (ch.total_views || 0);
 
             if (ch.status === 'live') {
                 badge.className = 'status-badge status-live';
