@@ -18,19 +18,29 @@
 
     {% if needs_password and not has_access %}
     <!-- 密码验证 -->
-    <div class="password-gate">
-        <div class="password-box">
-            <div class="password-icon"><i class="fas fa-lock"></i></div>
-            <h2>{{ channel.name }}</h2>
-            <p class="password-subtitle">此直播已加密，请输入密码观看</p>
-            <div class="password-input-wrap">
-                <input type="password" id="roomPasswordInput" placeholder="请输入密码" autofocus
-                       onkeyup="if(event.key==='Enter') verifyPassword()">
-                <button onclick="verifyPassword()" class="pwd-btn" id="pwdBtn">
-                    <i class="fas fa-arrow-right"></i>
-                </button>
+    <div class="pwd-gate">
+        <div class="pwd-card">
+            <div class="pwd-glow"></div>
+            <div class="pwd-lock-ring">
+                <div class="pwd-lock-ring-inner">
+                    <i class="fas fa-lock"></i>
+                </div>
             </div>
-            <p id="passwordError" class="password-error" style="display:none;"><i class="fas fa-exclamation-circle"></i> 密码错误，请重试</p>
+            <h2 class="pwd-title">{{ channel.name }}</h2>
+            <p class="pwd-desc">此直播已加密，请输入密码观看</p>
+            <div class="pwd-field" id="pwdField">
+                <i class="fas fa-key pwd-field-icon"></i>
+                <input type="password" id="roomPasswordInput" placeholder="输入密码" autofocus
+                       onkeyup="if(event.key==='Enter') verifyPassword()">
+            </div>
+            <button onclick="verifyPassword()" class="pwd-submit" id="pwdBtn">
+                <span class="pwd-submit-text">进入直播间</span>
+                <i class="fas fa-arrow-right pwd-submit-icon"></i>
+            </button>
+            <div class="pwd-error" id="passwordError">
+                <i class="fas fa-exclamation-circle"></i>
+                <span>密码错误，请重试</span>
+            </div>
         </div>
     </div>
     {% else %}
@@ -73,21 +83,30 @@
 {% endblock %}
 
 <style>
-.password-gate{display:flex;align-items:center;justify-content:center;min-height:450px;background:var(--surface);border-radius:12px;border:1px solid var(--surface-border);}
-.password-box{text-align:center;padding:48px 40px;max-width:400px;width:100%;}
-.password-icon{width:72px;height:72px;margin:0 auto 24px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(108,92,231,0.3);}
-.password-icon i{font-size:28px;color:#fff;}
-.password-box h2{font-size:1.4rem;margin-bottom:8px;}
-.password-subtitle{color:var(--text-dim);font-size:0.9rem;margin-bottom:28px;}
-.password-input-wrap{display:flex;gap:8px;margin-bottom:4px;}
-.password-input-wrap input{flex:1;padding:14px 16px;border-radius:10px;border:2px solid var(--surface-border);background:var(--surface-hover);color:var(--text);font-size:15px;box-sizing:border-box;transition:border-color 0.2s;}
-.password-input-wrap input:focus{outline:none;border-color:var(--primary);}
-.pwd-btn{width:48px;height:48px;border:none;border-radius:10px;background:var(--primary);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;transition:background 0.2s;flex-shrink:0;}
-.pwd-btn:hover{background:var(--primary-dark);}
-.pwd-btn:disabled{opacity:0.6;cursor:not-allowed;}
-.password-error{color:#e74c3c;font-size:0.85rem;margin-top:12px;display:none;align-items:center;gap:6px;}
-.password-error.show{display:flex;animation:shake 0.4s;}
-@keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-8px);}75%{transform:translateX(8px);}}
+.pwd-gate{display:flex;align-items:center;justify-content:center;min-height:480px;}
+.pwd-card{position:relative;width:100%;max-width:380px;padding:48px 36px 40px;border-radius:20px;background:var(--surface);border:1px solid var(--surface-border);box-shadow:0 24px 64px rgba(0,0,0,0.12);text-align:center;overflow:hidden;}
+.pwd-glow{position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:200px;height:200px;border-radius:50%;background:var(--primary);opacity:0.12;filter:blur(60px);pointer-events:none;}
+.pwd-lock-ring{width:80px;height:80px;margin:0 auto 24px;position:relative;}
+.pwd-lock-ring::before{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--primary);opacity:0.2;animation:pulse-ring 2s ease-out infinite;}
+.pwd-lock-ring-inner{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-dark));display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(108,92,231,0.35);}
+.pwd-lock-ring-inner i{font-size:30px;color:#fff;}
+@keyframes pulse-ring{0%{transform:scale(1);opacity:0.2;}100%{transform:scale(1.25);opacity:0;}}
+.pwd-title{font-size:1.35rem;font-weight:700;margin-bottom:6px;}
+.pwd-desc{color:var(--text-dim);font-size:0.88rem;margin-bottom:28px;line-height:1.5;}
+.pwd-field{display:flex;align-items:center;gap:10px;padding:0 16px;margin-bottom:16px;border-radius:12px;border:2px solid var(--surface-border);background:var(--surface-hover);transition:border-color 0.2s,box-shadow 0.2s;}
+.pwd-field:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(108,92,231,0.12);}
+.pwd-field-icon{color:var(--text-dim);font-size:0.95rem;flex-shrink:0;}
+.pwd-field input{flex:1;padding:15px 0;background:none;border:none;color:var(--text);font-size:15px;outline:none;}
+.pwd-field input::placeholder{color:var(--text-dim);opacity:0.7;}
+.pwd-submit{width:100%;padding:15px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;font-size:1rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity 0.2s,transform 0.1s;}
+.pwd-submit:hover{opacity:0.9;}
+.pwd-submit:active{transform:scale(0.98);}
+.pwd-submit:disabled{opacity:0.6;cursor:not-allowed;}
+.pwd-submit-icon{transition:transform 0.2s;}
+.pwd-submit:hover .pwd-submit-icon{transform:translateX(3px);}
+.pwd-error{color:#e74c3c;font-size:0.82rem;margin-top:14px;display:none;align-items:center;justify-content:center;gap:6px;}
+.pwd-error.show{display:flex;animation:shake 0.4s;}
+@keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-6px);}40%{transform:translateX(6px);}60%{transform:translateX(-4px);}80%{transform:translateX(4px);}}
 </style>
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/hls.min.js') }}"></script>
@@ -176,7 +195,6 @@
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         errEl.classList.remove('show');
-        errEl.style.display = 'none';
 
         fetch('/api/channels/' + channelId + '/verify', {
             method: 'POST',
@@ -196,7 +214,6 @@
                 btn.innerHTML = '<i class="fas fa-arrow-right"></i>';
                 errEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + (res.data.error || '密码错误');
                 errEl.classList.add('show');
-                errEl.style.display = 'flex';
                 input.value = '';
                 input.focus();
             }
